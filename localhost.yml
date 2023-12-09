@@ -1,0 +1,95 @@
+---
+
+- name: Initial Setup
+  hosts: localhost
+
+  vars:
+    minimum_ansible_version: "2.7"
+    # using versioned pips requires 2.7
+
+    packages:
+      - libffi-dev
+      - libyaml-dev
+      - python3-apt
+      - shellcheck
+      - sshpass
+      - tmux
+      - vim
+      - virtualenv
+      - whois # for mkpasswrd
+
+    ansible_pips:
+      # - ansible==2.10.5
+      - ansible==2.10.7
+      # - ansible-lint==4.3.7
+      - ansible-lint==5.1.2
+
+    rdp_packages:
+      - xrdp
+      - tigervnc-standalone-server
+      - tigervnc-common
+      - wmaker
+
+    editor_path: /usr/bin/vim.basic
+
+  tasks:
+    - name: Ensure minimum ansible version
+      assert:
+        that: ansible_version.full is version(minimum_ansible_version, '>=')
+        fail_msg: Minimum ansible version required is {{ minimum_ansible_version }}
+        quiet: true
+
+    - name: Initial Packages
+      package:
+        name: '{{ packages }}'
+        state: present
+      become: true
+      when: not ansible_check_mode 
+      # complains about python3-apt which is installed, but not in the 
+      # virtualenv
+      tags:
+        - ansible
+        - package
+
+    - name: Install Ansible
+      pip:
+        name: '{{ ansible_pips }}'
+        virtualenv: '{{ ansible_user_dir }}/ansible'
+        virtualenv_python: python3
+        extra_args: --no-cache-dir --no-binary pyyaml
+        # https://www.jeffgeerling.com/blog/2021/ansible-might-be-running-slow-if-libyaml-not-available
+      tags:
+        - ansible
+
+    - name: RDP the Things
+      package:
+        name: '{{ rdp_packages }}'
+        state: present
+        install_recommends: false
+      become: true
+      when: not ansible_check_mode 
+      tags:
+        - rdp
+
+    - name: Remove Xorg section
+      ini_file:
+        path: /etc/xrdp/xrdp.ini
+        section: Xorg
+        state: absent
+      become: true
+
+    - name: Set vim as default editor
+      alternatives:
+        name: editor
+        path: '{{ editor_path }}'
+      become: true
+      tags: ed
+
+    - name: Set Window Maker as default X session
+      file:
+        path: '{{ ansible_user_dir }}/.xsession'
+        state: link
+        src: /usr/bin/wmaker
+      tags:
+        - rdp
+        - wmaker
