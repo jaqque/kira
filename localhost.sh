@@ -2,7 +2,7 @@
 
 cd "$HOME" || exit 3
 
-ANSIBLE_VERSION='>=2.10,<2.11' # install latest "reasonable" version
+ANSIBLE_VERSION='>=9.1,<9.2' # install latest "reasonable" version
 BOOTSTRAP=bootstrap
 INVENTORY=inventory.ini
 PLAYBOOK=localhost.yml
@@ -23,6 +23,8 @@ header() {
 bootstrap() {
   test -d "$BOOTSTRAP" && { info 'Already exists. Skipping.'; return; }
   test -e "$BOOTSTRAP" && error "$BOOTSTRAP exists. Exiting."
+  command -v virtualenv > /dev/null \
+    || sudo apt-get install --assume-yes virtualenv
   virtualenv --python python3 "$BOOTSTRAP"
 }
 
